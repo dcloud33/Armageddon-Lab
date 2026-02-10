@@ -103,21 +103,22 @@ resource "aws_cloudfront_distribution" "my_cf" {
   }
 
   origin {
-    origin_id   = "tokyo-alb-origin"
-    domain_name = data.terraform_remote_state.tokyo.outputs.tokyo_alb_dns_name
+  origin_id   = "tokyo-alb-origin"
+  domain_name = data.terraform_remote_state.tokyo.outputs.tokyo_alb_dns_name
 
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
-
-    custom_header {
-      name  = "My_Custom_Header"
-      value = random_password.my_origin_header_value01.result
-    }
+  custom_origin_config {
+    http_port              = 80
+    https_port             = 443
+    origin_protocol_policy = "http-only"
+    origin_ssl_protocols   = ["TLSv1.2"]
   }
+
+  custom_header {
+    name  = "My_Custom_Header"
+    value = var.origin_secret
+  }
+}
+
 
   ########################################
   # Origin Group (Failover)
@@ -127,9 +128,10 @@ resource "aws_cloudfront_distribution" "my_cf" {
   origin_group {
     origin_id = "lab-origin-group01"
 
-    failover_criteria {
-      status_codes = [403, 404, 500, 502, 503, 504]
-    }
+   failover_criteria {
+  status_codes = [500, 502, 503, 504]
+}
+
 
     member { origin_id = "sp-alb-origin" }
     member { origin_id = "tokyo-alb-origin" }
@@ -142,12 +144,27 @@ resource "aws_cloudfront_distribution" "my_cf" {
     target_origin_id       = "lab-origin-group01"
     viewer_protocol_policy = "redirect-to-https"
 
-    allowed_methods = ["GET","HEAD","OPTIONS","PUT","POST","PATCH","DELETE"]
+    allowed_methods = ["GET","HEAD","OPTIONS"]
     cached_methods  = ["GET","HEAD"]
 
     cache_policy_id          = aws_cloudfront_cache_policy.my_cache_api_disabled01.id
     origin_request_policy_id = aws_cloudfront_origin_request_policy.my_orp_api01.id
   }
+
+ordered_cache_behavior {
+  path_pattern     = "/init*"
+  target_origin_id = "lab-origin-group01"
+
+  viewer_protocol_policy = "redirect-to-https"
+  allowed_methods        = ["GET","HEAD","OPTIONS"]
+  cached_methods         = ["GET","HEAD","OPTIONS"]
+
+  cache_policy_id          = aws_cloudfront_cache_policy.my_cache_api_disabled01.id
+  origin_request_policy_id = aws_cloudfront_origin_request_policy.my_orp_api01.id
+}
+
+
+
 
   ordered_cache_behavior {
     path_pattern           = "/api/public-feed"
@@ -166,7 +183,7 @@ resource "aws_cloudfront_distribution" "my_cf" {
     target_origin_id       = "lab-origin-group01"
     viewer_protocol_policy = "redirect-to-https"
 
-    allowed_methods = ["GET","HEAD","OPTIONS","PUT","POST","PATCH","DELETE"]
+    allowed_methods = ["GET","HEAD","OPTIONS"]
     cached_methods  = ["GET","HEAD"]
 
     cache_policy_id          = aws_cloudfront_cache_policy.my_cache_api_disabled01.id
@@ -242,10 +259,10 @@ data "aws_route53_zone" "piecourse" {
 
 
 
-resource "random_password" "my_origin_header_value01" {
-  length  = 32
-  special = true
-}
+# resource "random_password" "my_origin_header_value01" {
+#   length  = 32
+#   special = true
+# }
 
 # Explanation: DNS now points to CloudFront — nobody should ever see the ALB again.
 resource "aws_route53_record" "chewbacca_apex_to_cf01" {
