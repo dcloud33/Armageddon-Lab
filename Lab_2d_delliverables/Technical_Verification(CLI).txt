@@ -1,0 +1,103 @@
+2a.)
+(base) davey@MacBook-Air-2 ~ % curl -I https://piecourse.com/static/example.txt
+curl -I https://piecourse.com/static/example.txt
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+content-length: 13
+server: Werkzeug/3.1.6 Python/3.9.25
+content-disposition: inline; filename=example.txt
+last-modified: Mon, 23 Feb 2026 15:28:09 GMT
+date: Mon, 23 Feb 2026 16:19:02 GMT
+cache-control: public, max-age=86400, immutable
+etag: "1771860489.271555-13-2962164636"
+x-cache: RefreshHit from cloudfront
+via: 1.1 ab46854462c3986bd1b6e6c909d2ad6e.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: Xr7iOQ6kUyBcdRxxKMKv4l81nhiZajWYEZHRiPHb7shOLbqLiYo7DQ==
+
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+content-length: 13
+server: Werkzeug/3.1.6 Python/3.9.25
+content-disposition: inline; filename=example.txt
+last-modified: Mon, 23 Feb 2026 15:28:09 GMT
+date: Mon, 23 Feb 2026 16:19:02 GMT
+cache-control: public, max-age=86400, immutable
+etag: "1771860489.271555-13-2962164636"
+x-cache: Hit from cloudfront
+via: 1.1 1eb831a506072a14a859a537d9bab544.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: g_n85RkdkVhqqx8fDaBeXD1GMfzkB55DvhEBiAEsqNj7M4FrsP1fhA==
+age: 1
+
+
+2b.)
+(base) davey@MacBook-Air-2 ~ % curl -I https://piecourse.com/api/list
+curl -I https://piecourse.com/api/list
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+content-length: 23
+date: Mon, 23 Feb 2026 16:13:38 GMT
+server: Werkzeug/3.1.6 Python/3.9.25
+x-cache: Miss from cloudfront
+via: 1.1 0b834179ab679169d69e76efd0f63c8c.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: Z6qWWTAzw7XJR1HqjPzXsZ1eHTaBa2ckTPBhWqYmL_05Ut3bxNYdIg==
+
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+content-length: 23
+date: Mon, 23 Feb 2026 16:13:38 GMT
+server: Werkzeug/3.1.6 Python/3.9.25
+x-cache: Miss from cloudfront
+via: 1.1 5fe76777b5d149f4cb5647f9a6f5366a.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: TZABt5Q-wCb93CuLsqPZ6UgPjCDQ3sp9GPfHL_vuH1qpuKCEXY8dEw==
+
+
+
+3.)
+(base) davey@MacBook-Air-2 ~ % curl -I "https://piecourse.com/static/example.txt?v=1"
+curl -I "https://piecourse.com/static/example.txt?v=2"
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+content-length: 13
+server: Werkzeug/3.1.6 Python/3.9.25
+content-disposition: inline; filename=example.txt
+last-modified: Mon, 23 Feb 2026 15:28:09 GMT
+date: Mon, 23 Feb 2026 16:25:55 GMT
+cache-control: public, max-age=86400, immutable
+etag: "1771860489.271555-13-2962164636"
+x-cache: RefreshHit from cloudfront
+via: 1.1 469cf6a8d201dfefd060f8c8e825ca5c.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: 66alt7hzwFPAmbssWkDmHN2zZwxR2i0Exws5sDKfnfR7xVWOmO_C-g==
+
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+content-length: 13
+server: Werkzeug/3.1.6 Python/3.9.25
+content-disposition: inline; filename=example.txt
+last-modified: Mon, 23 Feb 2026 15:28:09 GMT
+date: Mon, 23 Feb 2026 16:25:55 GMT
+cache-control: public, max-age=86400, immutable
+etag: "1771860489.271555-13-2962164636"
+x-cache: Hit from cloudfront
+via: 1.1 49e5a5770577a9e2e523f98b1849f914.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: AcDVKwWCH-hfUtlcF5ekB9mQ8Q1xUIaqQPiAfcDCA7z73rQffgKsrw==
+
+4.)
+
+(base) davey@MacBook-Air-2 ~ % curl -i "https://piecourse.com/api/list"
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+content-length: 45
+date: Mon, 23 Feb 2026 16:30:47 GMT
+server: Werkzeug/3.1.6 Python/3.9.25
+x-cache: Miss from cloudfront
+via: 1.1 da6670755d0ba8704d688c4b47162c2e.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: En0DFXYIb_DqKkwTG2VeHTB6PS8xZyU9J7ZIlgyt2_WCej2IUE5Eqg==
+
+<h3>Notes</h3><ul><li>1: stale_note</li></ul>%   

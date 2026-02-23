@@ -1,4 +1,61 @@
+A.)
+(base) davey@MacBook-Air-2 ~ % curl -I https://piecourse.com/static/example.txt
+curl -I https://piecourse.com/static/example.txt
 
+curl -I https://piecourse.com/api/list
+curl -I https://piecourse.com/api/list
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+content-length: 13
+server: Werkzeug/3.1.6 Python/3.9.25
+content-disposition: inline; filename=example.txt
+last-modified: Mon, 23 Feb 2026 15:28:09 GMT
+date: Mon, 23 Feb 2026 16:46:41 GMT
+cache-control: public, max-age=86400, immutable
+etag: "1771860489.271555-13-2962164636"
+x-cache: RefreshHit from cloudfront
+via: 1.1 3dd55c11c72ef969f5e46a679c8244ba.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: SmJR0-lsiVfmCmpVWXZG2Tt_8WFbBGrm_7VfcHmx2Jvkl1CmCKgwow==
+
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+content-length: 13
+server: Werkzeug/3.1.6 Python/3.9.25
+content-disposition: inline; filename=example.txt
+last-modified: Mon, 23 Feb 2026 15:28:09 GMT
+date: Mon, 23 Feb 2026 16:46:41 GMT
+cache-control: public, max-age=86400, immutable
+etag: "1771860489.271555-13-2962164636"
+x-cache: Hit from cloudfront
+via: 1.1 da6670755d0ba8704d688c4b47162c2e.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: fvbxR1j5LaoEmSDgIlggPEIqHynUiefwq5hPKwrW3KOIeoCjFgqBoQ==
+
+
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+content-length: 45
+date: Mon, 23 Feb 2026 16:46:42 GMT
+server: Werkzeug/3.1.6 Python/3.9.25
+x-cache: Miss from cloudfront
+via: 1.1 73f6f1dae6275f5d756c2055e3dcc9f4.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: GKqJ01rb_iHtpC8VgmeLJhtSTkanaZMJz8yQsJCMcHa3PlC1yPf9UQ==
+
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+content-length: 45
+date: Mon, 23 Feb 2026 16:46:43 GMT
+server: Werkzeug/3.1.6 Python/3.9.25
+x-cache: Miss from cloudfront
+via: 1.1 8e6570118b87577ac0e4b2d91be03f80.cloudfront.net (CloudFront)
+x-amz-cf-pop: SEA900-P5
+x-amz-cf-id: jU2vm_v_g4jAi-H4iwwHMWEvsIZwEWd35uNmQGeuEFBdPjYn5L3BrA==
+
+
+
+B.)
 
 1. What is my cache key for /api/* and why?
     Answer:

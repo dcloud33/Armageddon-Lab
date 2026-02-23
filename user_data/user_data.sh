@@ -50,14 +50,12 @@ echo "hello static" > /opt/rdsapp/static/example.txt
 
 
 cat >/opt/rdsapp/app.py <<'PY'
-import os, json, logging, urllib.request
+import os, json, logging, urllib.request, urllib.error
 from logging.handlers import RotatingFileHandler
 
 import boto3
 import pymysql
-from flask import Flask, request
-import urllib.request
-import urllib.error
+from flask import Flask, request, send_from_directory, jsonify
 
 REGION = os.getenv("AWS_REGION", "us-east-1")
 SECRET_ID = os.environ.get("SECRET_ID", "lab3/rds/mysql")
@@ -68,7 +66,6 @@ cloudwatch = boto3.client("cloudwatch", region_name=REGION)
 def get_instance_id():
     base = "http://169.254.169.254/latest"
     try:
-        # Get IMDSv2 token
         token_req = urllib.request.Request(
             f"{base}/api/token",
             method="PUT",
@@ -76,13 +73,11 @@ def get_instance_id():
         )
         token = urllib.request.urlopen(token_req, timeout=2).read().decode()
 
-        # Use token to fetch instance-id
         id_req = urllib.request.Request(
             f"{base}/meta-data/instance-id",
             headers={"X-aws-ec2-metadata-token": token},
         )
         return urllib.request.urlopen(id_req, timeout=2).read().decode()
-
     except Exception:
         return "unknown"
 
@@ -101,7 +96,7 @@ def emit_db_conn_error_metric():
             "Value": 1,
             "Unit": "Count",
             "Dimensions": [
-                {"Name": "InstanceId", "Value": "get_instance_id()"},
+                {"Name": "InstanceId", "Value": get_instance_id()},
                 {"Name": "Service", "Value": "rdsapp"},
                 {"Name": "Environment", "Value": "lab"}
             ]
@@ -127,63 +122,12 @@ def get_conn():
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return """
-    <h2>EC2 → RDS Notes App</h2>
-    <p>GET /init</p>
-    <p>GET or POST /add?note=hello</p>
-    <p>GET /list</p>
-    """
-
-@app.route("/init")
-def init_db():
-    c = get_db_creds()
-    dbname = c.get("dbname", "labdb")
-
-    conn = pymysql.connect(
-        host=c["host"], user=c["username"], password=c["password"],
-        port=int(c.get("port", 3306)), autocommit=True
-    )
-    cur = conn.cursor()
-    cur.execute(f"CREATE DATABASE IF NOT EXISTS `{dbname}`;")
-    cur.execute(f"USE `{dbname}`;")
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS notes (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            note VARCHAR(255) NOT NULL
-        );
-    """)
-    cur.close()
-    conn.close()
-    return f"Initialized {dbname} + notes table."
-
-
-@app.route("/add", methods=["POST", "GET"])
-def add_note():
-    note = request.args.get("note", "").strip()
-    if not note:
-        return "Missing note param. Try: /add?note=hello", 400
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO notes(note) VALUES(%s);", (note,))
-    cur.close()
-    conn.close()
-    return f"Inserted note: {note}\n"
-
-@app.route("/list")
-def list_notes():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT id, note FROM notes ORDER BY id DESC;")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    out = "<h3>Notes</h3><ul>"
-    for r in rows:
-        out += f"<li>{r[0]}: {r[1]}</li>"
-    out += "</ul>"
-    return out
+@app.after_request
+def add_api_no_cache_headers(resp):
+    if request.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-store"
+        resp.headers["Pragma"] = "no-cache"
+    return resp
 
 @app.route("/api/list")
 def api_list():
@@ -193,14 +137,13 @@ def api_list():
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    return list_notes()   # or call the same function your /list uses
+    return jsonify([{"id": r[0], "note": r[1]} for r in rows])
 
 @app.route("/static/<path:filename>")
 def static_files(filename):
     return send_from_directory("/opt/rdsapp/static", filename)
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80)
+
 PY
 
 # --- systemd service ---

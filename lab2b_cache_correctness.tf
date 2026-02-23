@@ -8,7 +8,7 @@ resource "aws_cloudfront_cache_policy" "my_cache_static01" {
   comment     = "Aggressive caching for /static/*"
   default_ttl = 86400    # 1 day
   max_ttl     = 31536000 # 1 year
-  min_ttl     = 0
+  min_ttl     = 60
 
   parameters_in_cache_key_and_forwarded_to_origin {
     # Explanation: Static should not vary on cookies—Chewbacca refuses to cache 10,000 versions of a PNG.
