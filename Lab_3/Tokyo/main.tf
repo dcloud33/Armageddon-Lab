@@ -946,10 +946,19 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "tgw_attach" {
 
 resource "aws_ec2_transit_gateway_peering_attachment_accepter" "accept" {
   count = var.enable_saopaulo_accept ? 1 : 0
-
   transit_gateway_attachment_id = data.terraform_remote_state.saopaulo[0].outputs.tgw_peering_attachment_id
 
   tags = { Name = "${local.name_prefix}-tgw-peer-accept" }
+}
+
+resource "aws_ec2_transit_gateway_route" "tokyo_to_saopaulo_via_peering" {
+  count = var.enable_saopaulo_accept ? 1 : 0
+
+  destination_cidr_block         = data.terraform_remote_state.saopaulo[0].outputs.sp_vpc_cidr
+  transit_gateway_route_table_id = aws_ec2_transit_gateway.tgw.association_default_route_table_id
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_peering_attachment_accepter.accept[0].id
+
+  depends_on = [aws_ec2_transit_gateway_peering_attachment_accepter.accept]
 }
 
 
@@ -962,4 +971,12 @@ resource "aws_route" "to_saopaulo_via_tgw" {
   depends_on = [aws_ec2_transit_gateway_vpc_attachment.tgw_attach]
 }
 
+
+
+
+# # Ensure Tokyo VPC attachment is associated with the default TGW route table
+# resource "aws_ec2_transit_gateway_route_table_association" "tokyo_vpc_assoc" {
+#   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.tgw_attach.id
+#   transit_gateway_route_table_id = aws_ec2_transit_gateway.tgw.association_default_route_table_id
+# }
 

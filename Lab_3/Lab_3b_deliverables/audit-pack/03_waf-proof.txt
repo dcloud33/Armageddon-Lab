@@ -1,0 +1,22 @@
+Using bucket: aws-waf-logs-724772093504
+Using prefix: AWSLogs/
+
+Analyzing 10 objects...
+
+=== WAF S3 Log Summary ===
+Total lines parsed: 23
+
+Actions:
+  ALLOW                23
+
+Top client IPs:
+  62.210.198.192       7
+  83.150.56.179        4
+  193.142.146.55       4
+  31.187.78.13         2
+  95.181.233.6         1
+  54.162.53.4          1
+  121.127.34.138       1
+  43.165.65.75         1
+  74.7.228.22          1
+  198.235.24.3         1

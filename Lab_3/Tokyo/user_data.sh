@@ -195,6 +195,10 @@ def api_list():
     conn.close()
     return list_notes()   # or call the same function your /list uses
 
+@app.route("/api/public-feed")
+def public_feed():
+    return list_items()
+
 @app.route("/static/<path:filename>")
 def static_files(filename):
     return send_from_directory("/opt/rdsapp/static", filename)

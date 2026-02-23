@@ -82,6 +82,8 @@ resource "aws_cloudfront_distribution" "my_cf" {
   is_ipv6_enabled = false
   comment         = "lab-cf01"
 
+  
+
   ########################################
   # Origins (São Paulo + Tokyo)
   ########################################
@@ -229,6 +231,9 @@ ordered_cache_behavior {
     response_headers_policy_id = aws_cloudfront_response_headers_policy.my_rsp_static01.id
   }
 
+
+
+
   ########################################
   # WAF at the edge
   ########################################
@@ -250,12 +255,93 @@ ordered_cache_behavior {
       restriction_type = "none"
     }
   }
+
+logging_config {
+    include_cookies = false
+    bucket          = aws_s3_bucket.cf_logs.bucket_regional_domain_name
+    prefix          = "Chwebacca-logs/"  # intentionally misspelled per lab
+  }
+
 }
+
+
 
 data "aws_route53_zone" "piecourse" {
   name         = "${var.domain_name}."
   private_zone = false
 }
+
+
+############ Cloudwatch Log WAF ##################
+
+resource "aws_cloudwatch_log_group" "waf" {
+  name              = "aws-waf-logs-chewbacca"
+  retention_in_days = 7
+}
+
+
+resource "aws_cloudwatch_log_resource_policy" "waf" {
+  policy_name = "waf-logging-policy"
+
+  policy_document = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Sid    = "AWSWAFLoggingPermissions",
+      Effect = "Allow",
+      Principal = { Service = "delivery.logs.amazonaws.com" },
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams"
+      ],
+      Resource = "${aws_cloudwatch_log_group.waf.arn}:*"
+    }]
+  })
+}
+
+
+
+
+
+
+############### Cloudfront Standard Logs ###########
+# CloudFront standard logs require ACLs enabled on the destination bucket
+# (so do NOT use BucketOwnerEnforced)
+resource "aws_s3_bucket" "cf_logs" {
+  bucket        = "lab3-cf-logs-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
+  tags = { Name = "lab3-cloudfront-logs" }
+}
+
+data "aws_caller_identity" "current" {}
+
+# IMPORTANT: allow ACLs by setting Object Ownership to ObjectWriter
+# (BucketOwnerEnforced disables ACLs and breaks CloudFront standard logs)
+resource "aws_s3_bucket_ownership_controls" "cf_logs" {
+  bucket = aws_s3_bucket.cf_logs.id
+  rule {
+    object_ownership = "ObjectWriter"
+  }
+}
+
+# CloudFront standard log delivery uses ACL-based writes; this ACL is commonly required.
+resource "aws_s3_bucket_acl" "cf_logs" {
+  depends_on = [aws_s3_bucket_ownership_controls.cf_logs]
+  bucket     = aws_s3_bucket.cf_logs.id
+  acl        = "log-delivery-write"
+}
+
+# Keep logs private
+resource "aws_s3_bucket_public_access_block" "cf_logs" {
+  bucket                  = aws_s3_bucket.cf_logs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+
+
 
 
 
@@ -336,6 +422,61 @@ resource "aws_wafv2_web_acl" "my_waf" {
     Name = "cf-waf"
   }
 }
+
+########## WAF Logging ###############
+resource "aws_wafv2_web_acl_logging_configuration" "waf_logging" {
+  resource_arn = aws_wafv2_web_acl.my_waf[0].arn
+
+  log_destination_configs = [
+    aws_cloudwatch_log_group.waf.arn
+  ]
+}
+
+
+
+
+
+############ WAF Logging:S3 #############
+# Explanation: S3 WAF logs are the long-term archive—Chewbacca likes receipts that survive dashboards.
+resource "aws_s3_bucket" "chewbacca_waf_logs_bucket01" {
+  count = var.waf_log_destination == "s3" ? 1 : 0
+  force_destroy = true
+
+  bucket = "aws-waf-logs-${data.aws_caller_identity.aws_caller.account_id}"
+
+  tags = {
+    Name = "my_project-waf-logs-bucket01"
+  }
+}
+
+# Explanation: Public access blocked—WAF logs are not a bedtime story for the entire internet.
+resource "aws_s3_bucket_public_access_block" "chewbacca_waf_logs_pab01" {
+  count = var.waf_log_destination == "s3" ? 1 : 0
+
+  bucket                  = aws_s3_bucket.chewbacca_waf_logs_bucket01[0].id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Explanation: Connect shield generator to archive vault—WAF -> S3.
+resource "aws_wafv2_web_acl_logging_configuration" "chewbacca_waf_logging_s3_01" {
+  count = var.enable_waf && var.waf_log_destination == "s3" ? 1 : 0
+
+  resource_arn = aws_wafv2_web_acl.my_waf[0].arn
+  log_destination_configs = [
+    aws_s3_bucket.chewbacca_waf_logs_bucket01[0].arn
+  ]
+
+  depends_on = [aws_wafv2_web_acl.my_waf]
+}
+
+
+
+
+
+
 
 ############## ACM
 

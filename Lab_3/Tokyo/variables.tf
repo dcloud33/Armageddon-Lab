@@ -87,7 +87,7 @@ variable "alb_access_logs_prefix" {
 variable "enable_saopaulo_accept" {
   description = "Enable TGW peering accepter after Sao Paulo state exists"
   type        = bool
-  default     = false
+  default     = false #make sure to enable true
 }
 
 variable "origin_secret" {

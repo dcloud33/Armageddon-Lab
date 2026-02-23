@@ -25,17 +25,17 @@ default = "724772093504"
 
 }
 
-variable "ec2_ami_id" {
-  description = "AMI ID for the EC2 app host."
+variable "ami_id" {
+   description = "AMI ID for the EC2 app host."
   type        = string
   default     = "ami-0f85876b1aff99dde"
 }
 
-variable "ec2_instance_type" {
-  description = "EC2 instance size for the app."
-  type        = string
-  default     = "t2.micro"
+variable "instance_type" {
+  type    = string
+  default = "t3.micro"
 }
+
 
 variable "sns_sub_email_endpoint" {
   type    = string

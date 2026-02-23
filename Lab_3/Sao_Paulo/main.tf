@@ -75,7 +75,6 @@ count               = length(var.private_subnet_cidrs)
 }
 
 
-
 ############ Route Table: Public
 resource "aws_route_table" "public_route_table" {
   vpc_id = aws_vpc.vpc.id
@@ -112,6 +111,15 @@ resource "aws_route" "private_default_route" {
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.my_nat.id
 }
+
+# # Send Tokyo VPC traffic to the São Paulo Transit Gateway(added)
+resource "aws_route" "private_to_tokyo_via_tgw" {
+  route_table_id         = aws_route_table.my_private_route_table.id
+  destination_cidr_block = "10.90.0.0/16"
+  transit_gateway_id     = aws_ec2_transit_gateway.liberdade_tgw01.id
+}
+
+
 
 resource "aws_route_table_association" "private_route_table_association" {
    count          = length(aws_subnet.subnet_private_1) 
@@ -185,43 +193,6 @@ resource "aws_vpc_security_group_egress_rule" "rds_outbound" {
   ip_protocol       = "-1"
 }
 
-##################-RDS Subnet Group-#######################################
-
-
-# resource "aws_db_subnet_group" "my_rds_subnet_group" {
-#   name        = "my-rds-subnet-group"
-#   subnet_ids  = aws_subnet.subnet_private_1[*].id
-#   description = "this will have the RDS in the private subnet"
-
-#   tags = {
-#     Name = "my-rds-subnet-group"
-#   }
-# }
-
-################### RDS Instance
-
-# resource "aws_db_instance" "my_instance_rds" {
-#   identifier                      = "lab-mysql"
-#   engine                          = "mysql"
-#   instance_class                  = "db.t3.micro"
-#   allocated_storage               = 20
-#   db_name                         = var.rds_db_name
-#   username                        = var.rds_user_name
-#   password                        = var.rds_db_password
-#   enabled_cloudwatch_logs_exports = ["error"]
-
-
-#   db_subnet_group_name   = aws_db_subnet_group.my_rds_subnet_group.name
-#   vpc_security_group_ids = [aws_security_group.my-rds-sg.id]
-
-#   publicly_accessible = false
-#   skip_final_snapshot = true
-
-
-#   tags = {
-#     Name = "my-rds-instance"
-#   }
-# }
 
 ################## IAM Role & EC2 Instance #####################
 
@@ -370,38 +341,6 @@ resource "aws_iam_role_policy" "specific_access_cloudwatch_agent" {
 }
 
 
-############## PARAMETER STORE ###############
-# resource "aws_ssm_parameter" "rds_db_endpoint_parameter" {
-#   name  = "/lab/db/endpoint"
-#   type  = "String"
-#   value = aws_db_instance.my_instance_rds.address #Edit data block
-
-#   tags = {
-#     Name = "${local.name_prefix}-param-db-endpoint"
-#   }
-# }
-
-
-# resource "aws_ssm_parameter" "rds_db_port_parameter" {
-#   name  = "/lab/db/port"
-#   type  = "String"
-#   value = tostring(aws_db_instance.my_instance_rds.port)#Edit
-
-#   tags = {
-#     Name = "${local.name_prefix}-param-db-port"
-#   }
-# }
-
-
-# resource "aws_ssm_parameter" "rds_db_name_parameter" {
-#   name  = "/lab/db/name"
-#   type  = "String"
-#   value = var.rds_db_name #Edit
-
-#   tags = {
-#     Name = "${local.name_prefix}-param-db-name"
-#   }
-# }
 
 ############# CLOUDWATCH LOG GROUP ##############
 resource "aws_cloudwatch_log_group" "my_log_group" {
@@ -411,28 +350,264 @@ resource "aws_cloudwatch_log_group" "my_log_group" {
 }
 
 ############ INSTANCE PROFILE ###############
-resource "aws_iam_instance_profile" "cloudwatch_agent_profile" {
+resource "aws_iam_instance_profile" "ec2_profile" {
   name = "my-instance-profile02"
   role = aws_iam_role.my_ec2_role.name
 }
 
-############ EC2 INSTANCE: APP HOST ##################################
 
-resource "aws_instance" "my_created_ec2" {
-  ami                    = var.ec2_ami_id
-  instance_type          = var.ec2_instance_type
-  vpc_security_group_ids = [aws_security_group.my-ec2-sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.cloudwatch_agent_profile.name
-  subnet_id = aws_subnet.subnet_private_1[0].id
-  associate_public_ip_address = true
+##################### Launch Template ##############
+
+resource "aws_launch_template" "app_lt" {
+  name_prefix   = "${local.name_prefix}-lt-"
+  image_id      = var.ami_id              
+  instance_type = var.instance_type       
 
 
- user_data = file("${path.module}/user_data/user_data.sh")
+  vpc_security_group_ids = [
+    aws_security_group.my-ec2-sg.id
+  ]
 
-  tags = {
-    Name = "${local.name_prefix}-ec201"
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2_profile.name
   }
-  depends_on = [aws_cloudwatch_log_group.my_log_group]
+
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+dnf update -y
+dnf install -y python3-pip amazon-cloudwatch-agent
+pip3 install flask pymysql boto3
+
+# --- CloudWatch Agent: logs ---
+mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
+
+cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWC'
+{
+  "logs": {
+    "force_flush_interval": 15,
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+            "log_group_name": "/aws/ec2/lab-rds-app",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/my-app.log",
+            "log_group_name": "MyLogGroup/AppLogs",
+            "log_stream_name": "app-{instance_id}",
+            "timezone": "LOCAL"
+          }
+        ]
+      }
+    }
+  }
+}
+CWC
+
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config -m ec2 -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+
+systemctl enable amazon-cloudwatch-agent
+systemctl restart amazon-cloudwatch-agent
+
+# --- App code ---
+mkdir -p /opt/rdsapp
+mkdir -p /opt/rdsapp/static
+echo "hello static" > /opt/rdsapp/static/example.txt
+
+
+
+cat >/opt/rdsapp/app.py <<'PY'
+import os, json, logging, urllib.request
+from logging.handlers import RotatingFileHandler
+
+import boto3
+import pymysql
+from flask import Flask, request, send_from_directory
+import urllib.request
+import urllib.error
+
+REGION = os.getenv("AWS_REGION", "ap-northeast-1")
+SECRET_ID = os.environ.get("SECRET_ID", "lab3/rds/mysql")
+
+secrets = boto3.client("secretsmanager", region_name=REGION)
+cloudwatch = boto3.client("cloudwatch", region_name=REGION)
+
+def get_instance_id():
+    base = "http://169.254.169.254/latest"
+    try:
+        # Get IMDSv2 token
+        token_req = urllib.request.Request(
+            f"{base}/api/token",
+            method="PUT",
+            headers={"X-aws-ec2-metadata-token-ttl-seconds": "21600"},
+        )
+        token = urllib.request.urlopen(token_req, timeout=2).read().decode()
+
+        # Use token to fetch instance-id
+        id_req = urllib.request.Request(
+            f"{base}/meta-data/instance-id",
+            headers={"X-aws-ec2-metadata-token": token},
+        )
+        return urllib.request.urlopen(id_req, timeout=2).read().decode()
+
+    except Exception:
+        return "unknown"
+
+def get_db_creds():
+    resp = secrets.get_secret_value(SecretId=SECRET_ID)
+    return json.loads(resp["SecretString"])
+
+handler = RotatingFileHandler("/var/log/my-app.log", maxBytes=10_000_000, backupCount=3)
+logging.basicConfig(level=logging.INFO, handlers=[handler])
+
+def emit_db_conn_error_metric():
+    cloudwatch.put_metric_data(
+        Namespace="Lab3/RDSApp",
+        MetricData=[{
+            "MetricName": "DBConnectionErrors",
+            "Value": 1,
+            "Unit": "Count",
+            "Dimensions": [
+                {"Name": "InstanceId", "Value": get_instance_id()},
+                {"Name": "Service", "Value": "rdsapp"},
+                {"Name": "Environment", "Value": "lab"}
+            ]
+        }]
+    )
+
+def get_conn():
+    c = get_db_creds()
+    try:
+        return pymysql.connect(
+            host=c["host"],
+            user=c["username"],
+            password=c["password"],
+            port=int(c.get("port", 3306)),
+            database=c.get("dbname", "labdb"),
+            autocommit=True,
+            connect_timeout=3,
+        )
+    except Exception as e:
+        logging.exception("DB connection failed: %s", e)
+        emit_db_conn_error_metric()
+        raise
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return """
+    <h2>EC2 → RDS Notes App</h2>
+    <p>GET /init</p>
+    <p>GET or POST /add?note=hello</p>
+    <p>GET /list</p>
+    """
+
+@app.route("/init")
+def init_db():
+    c = get_db_creds()
+    dbname = c.get("dbname", "labdb")
+
+    conn = pymysql.connect(
+        host=c["host"], user=c["username"], password=c["password"],
+        port=int(c.get("port", 3306)), autocommit=True
+    )
+    cur = conn.cursor()
+    cur.execute(f"CREATE DATABASE IF NOT EXISTS `{dbname}`;")
+    cur.execute(f"USE `{dbname}`;")
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS notes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            note VARCHAR(255) NOT NULL
+        );
+    """)
+    cur.close()
+    conn.close()
+    return f"Initialized {dbname} + notes table."
+
+
+@app.route("/add", methods=["POST", "GET"])
+def add_note():
+    note = request.args.get("note", "").strip()
+    if not note:
+        return "Missing note param. Try: /add?note=hello", 400
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO notes(note) VALUES(%s);", (note,))
+    cur.close()
+    conn.close()
+    return f"Inserted note: {note}\n"
+
+@app.route("/list")
+def list_notes():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, note FROM notes ORDER BY id DESC;")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    out = "<h3>Notes</h3><ul>"
+    for r in rows:
+        out += f"<li>{r[0]}: {r[1]}</li>"
+    out += "</ul>"
+    return out
+
+@app.route("/api/list")
+def api_list():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, note FROM notes ORDER BY id DESC;")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return list_notes()   # or call the same function your /list uses
+
+@app.route("/api/public-feed")
+def public_feed():
+    return list_notes()
+
+@app.route("/static/<path:filename>")
+def static_files(filename):
+    return send_from_directory("/opt/rdsapp/static", filename)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=80)
+PY
+
+# --- systemd service ---
+cat >/etc/systemd/system/rdsapp.service <<'SERVICE'
+[Unit]
+Description=EC2 to RDS Notes App
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/rdsapp
+Environment=SECRET_ID=lab3/rds/mysql
+ExecStart=/usr/bin/python3 /opt/rdsapp/app.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+systemctl daemon-reload
+systemctl enable rdsapp
+systemctl restart rdsapp
+    EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "${local.name_prefix}-app"
+    }
+  }
 }
 
 
@@ -486,7 +661,6 @@ data "aws_secretsmanager_secret" "my_db_secret" {
 data "aws_secretsmanager_secret_version" "my_db_secret_version" {
   secret_id = data.aws_secretsmanager_secret.my_db_secret.id
 
-#   depends_on = [aws_db_instance.my_instance_rds]
 }
 
 locals {
@@ -494,7 +668,6 @@ locals {
 }
 
 ################ APPLICATION LOAD BALANCER ####################
-
 
 
 resource "aws_lb" "sao_paulo_lb" {
@@ -508,25 +681,13 @@ resource "aws_lb" "sao_paulo_lb" {
   enable_deletion_protection = false
 
 
-  
-
   tags = {
     Environment = "production"
   }
 }
 
 
-########### APPLICATION LOAD BALANCER SG
 
-resource "aws_security_group" "my_alb_sg" {
-  name        = "my-alb-sg"
-  description = "application loadbalancer security group"
-  vpc_id      = aws_vpc.vpc.id
-
-  tags = {
-    Name = "my-rds-sg01"
-  }
-}
 
 resource "aws_lb_listener" "alb_http_listener" {
   load_balancer_arn = aws_lb.sao_paulo_lb.arn
@@ -587,17 +748,51 @@ health_check {
   }
 }
 
-resource "aws_lb_target_group_attachment" "tg_attach" {
-  target_group_arn = aws_lb_target_group.alb_target_group.arn
-  target_id        = aws_instance.my_created_ec2.id
-  port             = 80
 
+################## Auto Scaling Group ###############
+
+resource "aws_autoscaling_group" "app_asg" {
+  name             = "${local.name_prefix}-asg"
+  min_size         = 1
+  desired_capacity = 1
+  max_size         = 3
+
+  vpc_zone_identifier = aws_subnet.subnet_private_1[*].id
+    
   
+
+  launch_template {
+    id      = aws_launch_template.app_lt.id
+    version = "$Latest"
+  }
+
+  target_group_arns = [
+    aws_lb_target_group.alb_target_group.arn
+  ]
+
+  health_check_type         = "ELB"
+  health_check_grace_period = 60
+
+  tag {
+    key                 = "Name"
+    value               = "${local.name_prefix}-asg-app"
+    propagate_at_launch = true
+  }
 }
 
 
-############ ALB SG
 
+########### APPLICATION LOAD BALANCER SG
+
+resource "aws_security_group" "my_alb_sg" {
+  name        = "my-alb-sg"
+  description = "application loadbalancer security group"
+  vpc_id      = aws_vpc.vpc.id
+
+  tags = {
+    Name = "my-rds-sg01"
+  }
+}
 
 resource "aws_security_group_rule" "alb_http_ingress" {
   type              = "ingress"
@@ -609,73 +804,13 @@ resource "aws_security_group_rule" "alb_http_ingress" {
 
 }
 
-# resource "aws_security_group_rule" "alb_http_ingress_cf" {
-#   type              = "ingress"
-#   security_group_id = aws_security_group.my-alb-sg.id
-#   from_port         = 80
-#   to_port           = 80
-#   protocol          = "tcp"
-
-#   prefix_list_ids = [
-#     data.aws_ec2_managed_prefix_list.chewbacca_cf_origin_facing01.id
-#   ]
-# }
-
-
 resource "aws_vpc_security_group_egress_rule" "alb_egress" {
   security_group_id = aws_security_group.my_alb_sg.id
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
 }
 
-################# WAF ##########################
-
-# resource "aws_wafv2_web_acl" "my_waf" {
-#  provider = aws.use1
-#  count = var.enable_waf ? 1 : 0
-
-#   name  = "cf-waf"
-#   scope = "CLOUDFRONT"
-
-#   default_action {
-#     allow {}
-#   }
-
-#   visibility_config {
-#     cloudwatch_metrics_enabled = true
-#     metric_name                = "cf-waf"
-#     sampled_requests_enabled   = true
-#   }
-
-  
-#   rule {
-#     name     = "AWSManagedRulesCommonRuleSet"
-#     priority = 1
-
-#     override_action {
-#       none {}
-#     }
-
-#     statement {
-#       managed_rule_group_statement {
-#         name        = "AWSManagedRulesCommonRuleSet"
-#         vendor_name = "AWS"
-#       }
-#     }
-
-#     visibility_config {
-#       cloudwatch_metrics_enabled = true
-#       metric_name                = "cf-waf-common"
-#       sampled_requests_enabled   = true
-#     }
-#   }
-
-#   tags = {
-#     Name = "cf-waf"
-#   }
-# }
-
-
+########## Cloudwatch 5XX Alarm ########################
 resource "aws_cloudwatch_metric_alarm" "chewbacca_alb_5xx_alarm01" {
   alarm_name          = "lab-alb-5xx-alarm01"
   comparison_operator = "GreaterThanOrEqualToThreshold"
@@ -698,31 +833,6 @@ resource "aws_cloudwatch_metric_alarm" "chewbacca_alb_5xx_alarm01" {
   }
 }
 
-
-################# ACM
-
-# resource "aws_acm_certificate" "piecourse_acm_cert" {
-#   provider                  = aws.use1
-#   domain_name               = var.domain_name
-#   validation_method         = "DNS"
-
-# subject_alternative_names = [
-#     "${var.app_subdomain}.${var.domain_name}", # app.piecourse.com
-#     "www.${var.domain_name}"
-#   ]
-
-#   tags = {
-#     Name = "piecourse-acm-cert"
-#   }
-# }
-
-
-# resource "aws_acm_certificate_validation" "piecourse_acm_cert" {
-#   certificate_arn = aws_acm_certificate.piecourse_acm_cert.arn
-#   provider                = aws.use1
-#   validation_record_fqdns = [for r in aws_route53_record.acm_verification_record : r.fqdn]
-
-# }
 
 
 ################### CLOUDWATCH DASHBOARD ########################
@@ -784,88 +894,6 @@ resource "aws_cloudwatch_dashboard" "my_cloudwatch_dashboard01" {
   })
 }
 
-
-# Bonus B - Route53 (Hosted Zone + DNS records + ACM validation + ALIAS to ALB)
-
-# locals {
-#   # Explanation: Chewbacca needs a home planet—Route53 hosted zone is your DNS territory.
-#   my_zone_name = var.domain_name
-
-#   # Explanation: Use either Terraform-managed zone or a pre-existing zone ID (students choose their destiny).
-#   my_zone_id = var.manage_route53_in_terraform ? aws_route53_zone.my_zone[0].zone_id : var.route53_hosted_zone_id
-
-#   # Explanation: This is the app address that will growl at the galaxy (app.chewbacca-growl.com).
-#   my_app = "${var.app_subdomain}.${var.domain_name}"
-# }
-
-############################################
-# Hosted Zone (optional creation)
-############################################
-
-# Explanation: A hosted zone is like claiming Kashyyyk in DNS—names here become law across the galaxy.
-# resource "aws_route53_zone" "my_zone" {
-#   count = var.manage_route53_in_terraform ? 1 : 0
-
-#   name = local.my_zone_name
-
-#   tags = {
-#     Name = "lab-zone"
-#   }
-# }
-
-############################################
-# ACM DNS Validation Records
-############################################
-
-
-# resource "aws_route53_record" "acm_verification_record" {
-#   allow_overwrite = true
-#   for_each = {
-#     for dvo in aws_acm_certificate.piecourse_acm_cert.domain_validation_options :
-#     dvo.domain_name => {
-#       name   = dvo.resource_record_name
-#       type   = dvo.resource_record_type
-#       record = dvo.resource_record_value
-#     }
-#   }
-
-#   zone_id = local.my_zone_id
-#   name    = each.value.name
-#   type    = each.value.type
-#   ttl     = 60
-
-#   records = [each.value.record]
-# }
-
-# Explanation: This ties the “proof record” back to ACM—Chewbacca gets his green checkmark for TLS.
-# resource "aws_acm_certificate_validation" "piecourse_acm_validation" {
-#   certificate_arn = aws_acm_certificate.piecourse_acm_cert.arn
-#   provider        = aws.use1
-
-#   validation_record_fqdns = [
-#     for r in aws_route53_record.acm_verification_record : r.fqdn
-#   ]
-# }
-
-
-
-# ALIAS record: app.chewbacca-growl.com -> ALB
-############################################
-
-# Explanation: This is the holographic sign outside the cantina—app.chewbacca-growl.com points to your ALB.
-# resource "aws_route53_record" "piecourse_subdomain" {
-#   zone_id = local.my_zone_id
-#   name    = local.my_app
-#   type    = "A"
-
-#   allow_overwrite = true
-
-#   alias {
-#     name                   = aws_lb.test.dns_name
-#     zone_id                = aws_lb.test.zone_id
-#     evaluate_target_health = true
-#   }
-# }
 
 # S3 bucket for ALB access logs
 ############################################
@@ -940,42 +968,6 @@ resource "aws_s3_bucket_policy" "chewbacca_alb_logs_policy01" {
   })
 }
 
-# resource "aws_s3_bucket" "my_waf_logs_bucket" {
-#   count = var.waf_log_destination == "s3" ? 1 : 0
-
-#   bucket = "aws-waf-logs-lab003-${data.aws_caller_identity.aws_caller.account_id}"
-
-#   force_destroy = true
-
-#   tags = {
-#     Name = "lab-alb-logs-bucket1.3"
-#   }
-# }
-
-# Explanation: Public access blocked—WAF logs are not a bedtime story for the entire internet.
-# resource "aws_s3_bucket_public_access_block" "my_waf_logs_pab" {
-#   count = var.waf_log_destination == "s3" ? 1 : 0
-
-#   bucket                  = aws_s3_bucket.my_waf_logs_bucket[0].id
-#   block_public_acls       = true
-#   block_public_policy     = true
-#   ignore_public_acls      = true
-#   restrict_public_buckets = true
-# }
-
-# Explanation: Connect shield generator to archive vault—WAF -> S3.
-# resource "aws_wafv2_web_acl_logging_configuration" "my_waf_logging_s3" {
-#   provider = aws.use1
-#   count = var.enable_waf && var.waf_log_destination == "s3" ? 1 : 0
-
-#   resource_arn = aws_wafv2_web_acl.my_waf[0].arn
-#   log_destination_configs = [
-#     aws_s3_bucket.my_waf_logs_bucket[0].arn
-#   ]
-
-# #   depends_on = [aws_wafv2_web_acl.my_waf]
-# }
-
 
 ###################### Transit Gateway #####################
 
@@ -1000,6 +992,12 @@ resource "aws_ec2_transit_gateway_peering_attachment" "to_tokyo" {
   tags = { Name = "Sao-Paulo-tgw-peer-to-tokyo" }
 }
 
+# Route Tokyo CIDR across the TGW peering attachment
+resource "aws_ec2_transit_gateway_route" "sp_tgw_to_tokyo" {
+  destination_cidr_block         = "10.90.0.0/16"
+  transit_gateway_route_table_id = aws_ec2_transit_gateway.liberdade_tgw01.association_default_route_table_id
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_peering_attachment.to_tokyo.id
+}
 
 
 

@@ -33,7 +33,7 @@ variable "alb_access_logs_prefix" {
 variable "waf_log_destination" {
   description = "Choose ONE destination per WebACL: cloudwatch | s3 | firehose"
   type        = string
-  default     = 0
+  default     = "s3"
 }
 
 variable "enable_waf" {

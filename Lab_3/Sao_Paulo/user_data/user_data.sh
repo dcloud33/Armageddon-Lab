@@ -1,7 +1,4 @@
 #!/bin/bash
-set -euo pipefail
-
-# --- Packages ---
 dnf update -y
 dnf install -y python3-pip amazon-cloudwatch-agent
 pip3 install flask pymysql boto3
@@ -194,6 +191,10 @@ def api_list():
     cur.close()
     conn.close()
     return list_notes()   # or call the same function your /list uses
+
+@app.route("/api/public-feed")
+def public_feed():
+    return list_items()
 
 @app.route("/static/<path:filename>")
 def static_files(filename):
