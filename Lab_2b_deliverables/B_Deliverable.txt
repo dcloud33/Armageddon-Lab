@@ -1,0 +1,19 @@
+
+
+1. What is my cache key for /api/* and why?
+    Answer:
+    The /api/* cache uses the lab-cache-api-disabled(created in terraform) which
+    had a min_ttl=default_ttl=max_ttl=0.
+
+    When setting it up this way CloudFront doesn't cache API responses. Since the cache key has
+    no headers, no cookies, and no query strings, there's no reusauble cache. Which is a safe default
+    so API responses can be dynamic, and keep it from being stale and vulnerable to data
+    leaks.
+
+2. What am I forwarding to origin and why?
+    Answer:
+    The /api/* origin request policy uses the lab-orp-api01(created in terraform) that 
+    forwards request to the origin, so the application can function as it should.
+    So, basically CloudFront forwards the request to the ALB, which would include 
+    the cookies, all query strings, and the three headers("Content-Type","Origin"
+    , "Host") these were included in my terraform as well.
