@@ -16,8 +16,5 @@ data "terraform_remote_state" "saopaulo" {
   }
 }
 
-data "aws_cloudfront_cache_policy" "use_origin_cache_control" {
-  name = "UseOriginCacheControlHeaders"
-}
 
 data "aws_caller_identity" "aws_caller" {}

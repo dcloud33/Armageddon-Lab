@@ -8,14 +8,25 @@ terraform {
   }
 }
 
-provider "aws" {
-  region = "us-east-1"
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      configuration_aliases = [aws.use1]
+    }
+  }
 }
 
 
 
-# Needed for resources that must live in us-east-1 (CloudFront ACM + global WAF)
+provider "aws" {
+  region = "us-east-1"
+}
+
+# Alias provider for us-east-1 (required for CloudFront ACM + WAF)
 provider "aws" {
   alias  = "use1"
   region = "us-east-1"
 }
+
+
