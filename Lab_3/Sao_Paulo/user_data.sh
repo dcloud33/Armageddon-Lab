@@ -52,7 +52,7 @@ from logging.handlers import RotatingFileHandler
 
 import boto3
 import pymysql
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 import urllib.request
 import urllib.error
 
@@ -98,7 +98,7 @@ def emit_db_conn_error_metric():
             "Value": 1,
             "Unit": "Count",
             "Dimensions": [
-                {"Name": "InstanceId", "Value": "get_instance_id()"},
+                {"Name": "InstanceId", "Value": get_instance_id()},
                 {"Name": "Service", "Value": "rdsapp"},
                 {"Name": "Environment", "Value": "lab"}
             ]
@@ -194,7 +194,7 @@ def api_list():
 
 @app.route("/api/public-feed")
 def public_feed():
-    return list_items()
+    return list_notes()
 
 @app.route("/static/<path:filename>")
 def static_files(filename):

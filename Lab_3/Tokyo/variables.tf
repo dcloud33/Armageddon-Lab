@@ -1,4 +1,4 @@
-variable "ec2_ami_id" {
+variable "ami_id" {
   description = "AMI ID for the EC2 app host."
   type        = string
   default     = "ami-06cce67a5893f85f9"
@@ -10,7 +10,7 @@ variable "aws_region" {
 }
 
 
-variable "ec2_instance_type" {
+variable "instance_type" {
   description = "EC2 instance size for the app."
   type        = string
   default     = "t2.micro"
@@ -93,4 +93,9 @@ variable "enable_saopaulo_accept" {
 variable "origin_secret" {
   type      = string
   default = "cd5161ff7a46d7584f5f5326477291373320fb84ae318577d83fff1a531f8fcd"
+}
+
+variable "vpc_cidr" {
+  type    = string
+  default = "10.90.0.0/16"
 }

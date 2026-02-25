@@ -22,6 +22,16 @@ data "aws_cloudfront_cache_policy" "chewbacca_use_origin_cache_headers_qs01" {
   name = "UseOriginCacheControlHeaders-QueryStrings"
 }
 
+data "aws_secretsmanager_secret" "my_db_secret" {
+  provider = aws.tokyo
+  name     = "lab3/rds/mysql"
+}
+
+data "aws_secretsmanager_secret_version" "my_db_secret_current" {
+  provider  = aws.tokyo
+  secret_id = data.aws_secretsmanager_secret.my_db_secret.id
+}
+
 # Explanation: Origin request policies let us forward needed stuff without polluting the cache key.
 # (Origin request policies are separate from cache policies.) :contentReference[oaicite:6]{index=6}
 data "aws_cloudfront_origin_request_policy" "chewbacca_orp_all_viewer01" {
@@ -32,9 +42,8 @@ data "aws_cloudfront_origin_request_policy" "chewbacca_orp_all_viewer_except_hos
   name = "Managed-AllViewerExceptHostHeader"
 }
 
-
-
 # Origin-driven cache policy (AWS managed)
 data "aws_cloudfront_cache_policy" "use_origin_cache_control" {
   name = "UseOriginCacheControlHeaders"
 }
+

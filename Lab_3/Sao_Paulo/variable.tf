@@ -21,7 +21,7 @@ variable "private_subnet_cidrs" {
 
 variable "account_ID" {
   type    = string
-default = "724772093504"
+  default = "724772093504"
 
 }
 
@@ -70,4 +70,9 @@ variable "alb_access_logs_prefix" {
 variable "origin_secret" {
   type      = string
   default = "cd5161ff7a46d7584f5f5326477291373320fb84ae318577d83fff1a531f8fcd"
+}
+
+variable "vpc_cidr" {
+  type    = string
+  default = "10.70.0.0/16"
 }
