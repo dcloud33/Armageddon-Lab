@@ -10,6 +10,7 @@
 ## Lab Overview
 
 <-- TODO Add Diagram-->
+![alt text](<Global Users.png>)![alt text](Tokyo.png)
 
 This lab builds on Labs 1 and 2 with a very important caveat...For this lab data can only exist in the Tokyo region. The Sao Paulo region can access data but is NOT allowed to persist any data. In order to satisfy this requirement, the RDS instance will only exist in the Tokyo region. In order for the instance in Sao Paulo to access data, we will configure a Transit Gateway (TGW). The TGW will allow the instance in the Sau Paulo region to connect to the RDS instance even though it lives in a private subnet in another region.
 

@@ -9,9 +9,6 @@ resource "aws_lb" "test" {
 
   enable_deletion_protection = false
 
-
-  
-
   tags = {
     Environment = "production"
   }
@@ -61,14 +58,6 @@ default_action {
   }
 
 
-#  default_action {
-#     type = "redirect"
-#     redirect {
-#       port        = "443"
-#       protocol    = "HTTPS"
-#       status_code = "HTTP_301"
-#     }
-#   }
 
 }
 
@@ -180,60 +169,9 @@ resource "aws_wafv2_web_acl" "my_waf" {
   }
 }
 
-# resource "aws_wafv2_web_acl" "my_waf" {
-#  count = var.enable_waf ? 1 : 0
 
-#   name  = "alb-waf"
-#   scope = var.waf_scope
+####### Cloudwatch Metric Alarm 5xx Alarm ################
 
-#   default_action {
-#     allow {}
-#   }
-
-#   visibility_config {
-#     cloudwatch_metrics_enabled = true
-#     metric_name                = "alb-waf"
-#     sampled_requests_enabled   = true
-#   }
-
-  
-#   rule {
-#     name     = "AWSManagedRulesCommonRuleSet"
-#     priority = 1
-
-#     override_action {
-#       none {}
-#     }
-
-#     statement {
-#       managed_rule_group_statement {
-#         name        = "AWSManagedRulesCommonRuleSet"
-#         vendor_name = "AWS"
-#       }
-#     }
-
-#     visibility_config {
-#       cloudwatch_metrics_enabled = true
-#       metric_name                = "alb-waf-common"
-#       sampled_requests_enabled   = true
-#     }
-#   }
-
-#   tags = {
-#     Name = "alb-waf"
-#   }
-# }
-
-
-
-
-# Explanation: Attach the shield generator to the customs checkpoint — ALB is now protected.
-# resource "aws_wafv2_web_acl_association" "waf_assoc" {
-#   count = var.enable_waf ? 1 : 0
-
-#   resource_arn = aws_lb.test.arn
-#   web_acl_arn  = aws_wafv2_web_acl.my_waf[0].arn
-# }
 
 resource "aws_cloudwatch_metric_alarm" "chewbacca_alb_5xx_alarm01" {
   alarm_name          = "lab-alb-5xx-alarm01"

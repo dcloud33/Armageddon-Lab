@@ -1,13 +1,3 @@
-############################################
-# Bonus B - Route53 Zone Apex + ALB Access Logs to S3
-############################################
-
-############################################
-# Route53: Zone Apex (root domain) -> ALB
-############################################
-
-# Explanation: The zone apex is the throne room—chewbacca-growl.com itself should lead to the ALB.
-
 
 ############################################
 # S3 bucket for ALB access logs
@@ -83,18 +73,3 @@ resource "aws_s3_bucket_policy" "chewbacca_alb_logs_policy01" {
   })
 }
 
-############################################
-# Enable ALB access logs (on the ALB resource)
-############################################
-
-# Explanation: Turn on access logs—Chewbacca wants receipts when something goes wrong.
-# NOTE: This is a skeleton patch: students must merge this into aws_lb.chewbacca_alb01
-# by adding/accessing the `access_logs` block. Terraform does not support "partial" blocks.
-#
-# Add this inside resource "aws_lb" "chewbacca_alb01" { ... } in bonus_b.tf:
-#
-# access_logs {
-#   bucket  = aws_s3_bucket.chewbacca_alb_logs_bucket01[0].bucket
-#   prefix  = var.alb_access_logs_prefix
-#   enabled = var.enable_alb_access_logs
-# }
