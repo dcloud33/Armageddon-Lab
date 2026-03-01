@@ -11,10 +11,11 @@
 
 <-- TODO Add Diagram-->
 
-Global Infrastructure for Cloudfront
+## Global Infrastructure for Cloudfront
 ![alt text](<Global Users.png>)
+CloudFront serves as the single global entry point and is protected by AWS WAF. Traffic is routed to either the Tokyo or São Paulo Application Load Balancer based on cache behavior and origin configuration. No application servers or databases exist in the global layer.
 
-Tokyo Infrastructure
+## Tokyo Infrastructure
 ![alt text](Tokyo.png)
 The Tokyo region architecture. The VPC contains public and private subnets, with the ALB in the public subnet and application servers and RDS deployed in private subnets. All patient medical data (PHI) is stored exclusively in Tokyo RDS. Connectivity to São Paulo occurs through a Transit Gateway attachment.
 
