@@ -76,7 +76,7 @@ cd ../saopaulo
 terraform apply
 ```
 
-What this next is:
+#### What this step does:
 
 Creates TGW peering attachment:
 
@@ -94,7 +94,7 @@ cd ../tokyo
 terraform apply -var="enable_saopaulo_accept=true"
 ```
 
-What's done in this step is:
+#### What's done in this step is:
 Accepts TGW peering attachment
 
 Adds route in Tokyo TGW route table
