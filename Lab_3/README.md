@@ -46,3 +46,70 @@ To further increase security, we'll be making sure that access to the web applic
 ## Why This Lab is Important for Cloud Engineers
 
 Companies are required to comply with various laws such as GDPR, HIPPA...As a cloud engineer, you will be required to create architecture that is compliant with laws. This lab shows that you understand data residency and can build an architecture that complies with laws that restrict where data can live and how data can be accessed.
+
+# Transit Gateway Peering Deployment
+ 
+ Transit Gateway peering between Tokyo and São Paulo is created using a controlled three-step deployment process.
+
+Because Transit Gateway is regional, each region must deploy its own TGW.
+Peering must be initiated in one region and accepted in the other.
+
+## Step 1: Deploy Tokyo (Without Accepting Peering)
+
+```Bash
+
+cd tokyo
+terraform apply -var="enable_saopaulo_accept=false"
+```
+
+Once this is complete:
+
+Tokyo TGW exists
+No peering is attached yet(since Sao_Paulo hasn't been created yet).
+This setsup Tokyo as the hub region.
+
+## Step 2: Deploy São Paulo (Initiates Peering)
+
+```bash
+
+cd ../saopaulo
+terraform apply
+```
+
+What this next is:
+
+Creates TGW peering attachment:
+
+from São Paulo
+
+to Tokyo TGW
+
+Creates VPC attachment to São Paulo TGW
+
+## Step 3: Reapply Tokyo (Accept Peering + Add Routes)
+
+```bash
+
+cd ../tokyo
+terraform apply -var="enable_saopaulo_accept=true"
+```
+
+What's done in this step is:
+Accepts TGW peering attachment
+
+Adds route in Tokyo TGW route table
+
+Adds route to Tokyo private subnet route table
+
+Enables cross-region traffic
+
+### Why these steps are required:
+Transit Gateway peering works like this:
+
+One region creates the peering request
+
+The other region must explicitly accept it
+
+Routes must be added only after attachment exists
+
+Terraform cannot create and accept the peering simultaneously across two independent state folders.
